@@ -93,6 +93,9 @@ class FiestaKNModel:
                 continue
             grid_mags = np.asarray(model_mags[fiesta_filt], dtype=np.float64)
             interp_all = np.interp(obs_rest_days, model_times, grid_mags)
+            interp_all = np.where(
+                obs_rest_days < model_times[0] - 1e-8, 99.0, interp_all
+            )
             result_mags[short_band] = interp_all.tolist()
 
         # For bands not covered by fiesta, fill with 99.
@@ -214,7 +217,10 @@ class FiestaKNModel:
             grid_mags = model_mags_np[fiesta_filt]  # (N, T)
             m0 = np.take_along_axis(grid_mags, idx, axis=1)
             m1 = np.take_along_axis(grid_mags, np.minimum(idx + 1, T - 1), axis=1)
-            interp_results[short_band] = m0 + w * (m1 - m0)  # (N, max_obs)
+            interp = m0 + w * (m1 - m0)  # (N, max_obs)
+            interp_results[short_band] = np.where(
+                obs_rest_padded < model_times_batch[:, 0:1] - 1e-8, 99.0, interp
+            )
 
         # Build results list — slice each transient's actual obs count
         results = []

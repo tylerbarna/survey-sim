@@ -226,23 +226,9 @@ fn build_photometry_from_eval(
         (inst.t_exp * 1000.0) as u64 ^ (inst.z * 1e6) as u64
     );
 
-    // Per-band counter: apparent_mags[band] is pushed in obs-order per band,
-    // so we need a counter per band to index the correct mag.
-    let mut band_counts: HashMap<String, usize> = HashMap::new();
-
-    for observation in obs.iter() {
+    for (obs_index, observation) in obs.iter().enumerate() {
         let band_name = observation.band.0.as_str();
         let depth = observation.five_sigma_depth;
-
-        // Increment per-band counter for EVERY observation (pre and post),
-        // since apparent_mags[band] contains one entry per obs in obs-index
-        // order (with mag=99 for pre-explosion).
-        let count_val = {
-            let count = band_counts.entry(band_name.to_string()).or_insert(0);
-            let v = *count;
-            *count += 1;
-            v
-        };
 
         // Pre-explosion observations are always non-detections
         if observation.mjd < inst.t_exp {
@@ -250,9 +236,10 @@ fn build_photometry_from_eval(
             continue;
         }
 
-        // Get model apparent magnitude for this observation (per-band indexing).
+        // Model arrays contain one value for every observation, including
+        // observations in other bands.
         let model_mag = match eval.apparent_mags.get(band_name) {
-            Some(mags) if count_val < mags.len() => mags[count_val],
+            Some(mags) if obs_index < mags.len() => mags[obs_index],
             _ => {
                 // No mag available for this band — record as non-detection
                 non_detections.push((observation.mjd, depth, band_name.to_string()));
@@ -458,7 +445,10 @@ fn run_pipeline_borrowed(
                     .map(|(idx, stacked_obs, stacked_eval)| {
                         let obs_refs: Vec<&survey_sim::survey::SurveyObservation> =
                             stacked_obs.iter().collect();
-                        let mut result = survey_sim::detection::evaluate_detection(stacked_eval, &obs_refs, criteria);
+                        let t_exp = instances[*idx].t_exp;
+                        let mut result = survey_sim::detection::evaluate_detection_with_t0(
+                            stacked_eval, &obs_refs, criteria, Some(t_exp),
+                        );
                         if gal_lat_cut > 0.0 && result.detected {
                             let b = instances[*idx].coord.galactic_lat().abs();
                             if b < gal_lat_cut {
@@ -484,7 +474,10 @@ fn run_pipeline_borrowed(
                     .map(|(idx, obs_indices, eval)| {
                         let obs_refs: Vec<&survey_sim::survey::SurveyObservation> =
                             obs_indices.iter().map(|&oi| survey.get(oi)).collect();
-                        let mut result = survey_sim::detection::evaluate_detection(eval, &obs_refs, criteria);
+                        let t_exp = instances[*idx].t_exp;
+                        let mut result = survey_sim::detection::evaluate_detection_with_t0(
+                            eval, &obs_refs, criteria, Some(t_exp),
+                        );
                         if gal_lat_cut > 0.0 && result.detected {
                             let b = instances[*idx].coord.galactic_lat().abs();
                             if b < gal_lat_cut {

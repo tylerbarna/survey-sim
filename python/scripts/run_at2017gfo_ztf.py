@@ -6,8 +6,6 @@ sys.path.insert(0, "/fred/oz480/mcoughli/fiestaEM/src")
 import survey_sim.gpu_setup  # noqa: F401 — configure LD_LIBRARY_PATH for JAX GPU
 
 import glob
-import math
-
 from survey_sim import (
     SurveyStore,
     FixedBu2026KilonovaPopulation,
@@ -86,29 +84,10 @@ for rs in result.rate_summaries:
     print(f"    Volumetric rate: {rs.volumetric_rate:.1f} Gpc^-3/yr")
     print(f"    Overall efficiency: {rs.overall_efficiency:.4f}")
 
-# Rate upper limits
-import numpy as np
-
-duration = survey.duration_years
-z_max = 0.3
-cosmo_h = 0.7
-d_max = 1380.0  # Mpc for z=0.3 approx
-V_max = (4.0/3.0) * math.pi * (d_max / 1000.0)**3  # Gpc^3
-
-# Sky coverage: ZTF covers ~47% of sky in public survey
-omega_ztf = 0.47 * 4 * math.pi  # sr
-f_sky = omega_ztf / (4 * math.pi)
-V_eff = V_max * f_sky
-
-VT_eff = V_eff * duration * eff
-
 print(f"\n--- Rate Upper Limits ---")
-print(f"  z_max = {z_max}, V_max = {V_max:.3f} Gpc^3")
-print(f"  f_sky = {f_sky:.2f}, V_eff = {V_eff:.3f} Gpc^3")
-print(f"  Duration = {duration:.2f} yr")
-print(f"  Efficiency = {eff:.4f}")
-print(f"  VT_eff = {VT_eff:.4f} Gpc^3 yr")
-
-for cl, label in [(0.90, "90%"), (0.95, "95%")]:
-    R_upper = -math.log(1 - cl) / VT_eff if VT_eff > 0 else float('inf')
-    print(f"  R_upper ({label} CL) = {R_upper:.0f} Gpc^-3 yr^-1")
+for rs in result.rate_summaries:
+    print(f"  z_max = {rs.z_max:.3f}")
+    print(f"  VT_eff = {rs.effective_vt_gpc3_yr:.4f} Gpc^3 yr")
+    for cl, label in [(0.90, "90%"), (0.95, "95%")]:
+        ul = rs.upper_limit(confidence_level=cl, n_observed=0)
+        print(f"  R_upper ({label} CL) = {ul.rate_upper:.0f} Gpc^-3 yr^-1")

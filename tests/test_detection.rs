@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use survey_sim::detection::{evaluate_detection, DetectionCriteria, DetectionResult};
+use survey_sim::detection::{
+    evaluate_detection, evaluate_detection_with_t0, DetectionCriteria,
+};
 use survey_sim::lightcurve::LightcurveEvaluation;
 use survey_sim::survey::SurveyObservation;
 use survey_sim::types::{Band, SkyCoord};
@@ -188,6 +190,34 @@ fn test_fade_rate_single_band_3pt() {
         "Fade rate {:.4} should be ~0.5 mag/day",
         fade
     );
+    assert!(result.is_fast_transient);
+    assert!(result.detected);
+}
+
+#[test]
+fn test_early_detection_fast_override_uses_explosion_time() {
+    let obs = vec![
+        make_obs(60000.20, "g", 25.0),
+        make_obs(60000.30, "g", 25.0),
+    ];
+    let obs_refs: Vec<&SurveyObservation> = obs.iter().collect();
+
+    let mut mags = HashMap::new();
+    mags.insert("g".to_string(), vec![20.0, 20.1]);
+    let eval = LightcurveEvaluation {
+        apparent_mags: mags,
+        times_mjd: vec![60000.20, 60000.30],
+    };
+    let criteria = DetectionCriteria {
+        require_fast_transient: true,
+        min_rise_rate: 10.0,
+        min_fade_rate: 10.0,
+        early_detection_fast_days: 0.25,
+        ..Default::default()
+    };
+
+    let result = evaluate_detection_with_t0(&eval, &obs_refs, &criteria, Some(60000.0));
+
     assert!(result.is_fast_transient);
     assert!(result.detected);
 }
