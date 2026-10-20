@@ -217,3 +217,56 @@ Execute the 3-phase pipeline. Returns a `SimulationResult`.
 | `overall_efficiency` | float | Detection efficiency \(N_\mathrm{det}/N_\mathrm{sim}\) |
 | `detections_per_year` | float | Extrapolated all-sky rate |
 | `detections_total` | float | Total detections over survey duration |
+
+#### `RateSummary.analyze_imposters()`
+
+```python
+rate_summary.analyze_imposters(
+    imposter_counts=None,      # list of (name, count, optional_sys_err)
+    imposter_summaries=None,   # list of other RateSummary instances
+    default_sys_err=0.20,      # fractional systematic error on imposter rates
+    followup_budget=None,      # maximum follow-up target capacity
+) -> KilonovaImposterAnalysis
+```
+
+---
+
+## Imposter Analysis
+
+### `KilonovaImposterAnalysis`
+
+Analyzes sample purity, contamination, false discovery rate (FDR), effective (pure) detection efficiency, follow-up budget dilution, and decontaminated rate recovery under astrophysical imposters (e.g. Type IIb SN shock cooling, FBOTs, flare stars).
+
+```python
+analysis = KilonovaImposterAnalysis.from_counts(
+    signal_name="BNS Kilonova",
+    volumetric_rate=50.0,
+    expected_detections=10.0,
+    effective_vt=0.20,
+    overall_efficiency=0.40,
+    imposters=[
+        ("Type IIb Shock Cooling", 20.0, 0.20),
+        ("FBOT", 10.0, 0.30),
+    ],
+    followup_budget=25.0,
+)
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `purity` | float | Sample precision \(N_\mathrm{KN} / (N_\mathrm{KN} + N_\mathrm{imp})\) |
+| `false_discovery_rate` | float | FDR \(1 - P\) |
+| `imposter_to_signal_ratio` | float | Contamination ratio \(N_\mathrm{imp} / N_\mathrm{KN}\) |
+| `pure_efficiency` | float | Effective efficiency \(\epsilon_\mathrm{KN} 	imes P\) |
+| `raw_efficiency` | float | Completeness without impurity penalty |
+| `f1_score` | float | Harmonic mean of efficiency and purity |
+| `significance_fom` | float | Poisson significance \(S / \sqrt{S + B}\) |
+| `naive_recovered_rate` | float | Rate assuming zero imposters (biased high) |
+| `rate_bias_absolute` | float | Rate overestimation bias \(\Delta R\) |
+| `rate_bias_fractional` | float | Fractional bias \(\Delta R / R\) |
+| `decontaminated_recovered_rate` | float | Background-subtracted recovered rate |
+| `decontaminated_1sig_interval` | tuple[float, float] | 1-sigma interval with background variance |
+| `decontaminated_2sig_interval` | tuple[float, float] | 2-sigma interval with background variance |
+| `variance_inflation_factor` | float | Variance inflation from imposter noise |
+| `uncertainty_inflation_factor` | float | Fractional uncertainty widening \(\sqrt{\mathrm{VIF}}\) |
+| `followup_metrics` | dict or None | Follow-up capacity and confirmed event metrics |

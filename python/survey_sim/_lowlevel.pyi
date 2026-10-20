@@ -71,3 +71,35 @@ class RateSummary:
     detections_per_year: float
     detections_total: float
     overall_efficiency: float
+    def analyze_imposters(
+        self,
+        imposter_counts: Optional[list[tuple[str, float, Optional[float]]]] = None,
+        imposter_summaries: Optional[list["RateSummary"]] = None,
+        default_sys_err: float = 0.20,
+        followup_budget: Optional[float] = None,
+    ) -> "KilonovaImposterAnalysis": ...
+
+class KilonovaImposterAnalysis:
+    signal_name: str
+    signal_detections: float
+    total_imposters: float
+    total_candidates: float
+    imposter_to_signal_ratio: float
+    purity: float
+    false_discovery_rate: float
+    pure_efficiency: float
+    raw_efficiency: float
+    f1_score: float
+    significance_fom: float
+    naive_recovered_rate: float
+    rate_bias_absolute: float
+    rate_bias_fractional: float
+    decontaminated_recovered_rate: float
+    decontaminated_1sig_interval: tuple[float, float]
+    decontaminated_2sig_interval: tuple[float, float]
+    variance_inflation_factor: float
+    uncertainty_inflation_factor: float
+    imposter_breakdown: list[tuple[str, float]]
+    def f_beta(self, beta: float) -> float: ...
+    def with_followup_budget(self, budget: float) -> "KilonovaImposterAnalysis": ...
+    def to_dict(self) -> dict: ...

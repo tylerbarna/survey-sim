@@ -1235,6 +1235,57 @@ impl PyRateSummary {
             survey_omega_sr: self.survey_omega_sr,
         }
     }
+
+    /// Analyze kilonova imposter contamination and detection efficiency.
+    #[pyo3(signature = (imposter_counts=None, imposter_summaries=None, default_sys_err=0.20, followup_budget=None))]
+    pub fn analyze_imposters(
+        &self,
+        imposter_counts: Option<Vec<(String, f64, Option<f64>)>>,
+        imposter_summaries: Option<Vec<PyRateSummary>>,
+        default_sys_err: f64,
+        followup_budget: Option<f64>,
+    ) -> PyResult<crate::py_rates::PyKilonovaImposterAnalysis> {
+        let kn_signal = survey_sim::efficiency::imposters::KilonovaSignal::new(
+            &self.transient_type,
+            self.volumetric_rate,
+            self.detections_total,
+            self.effective_vt_gpc3_yr,
+            self.overall_efficiency,
+        );
+
+        let mut imp_pops = Vec::new();
+
+        if let Some(counts) = imposter_counts {
+            for (name, count, sys_err) in counts {
+                imp_pops.push(survey_sim::efficiency::imposters::ImposterPopulation::from_count(
+                    &name,
+                    count,
+                    sys_err.unwrap_or(default_sys_err),
+                ));
+            }
+        }
+
+        if let Some(summaries) = imposter_summaries {
+            for summary in summaries {
+                imp_pops.push(survey_sim::efficiency::imposters::ImposterPopulation::from_count(
+                    &summary.transient_type,
+                    summary.detections_total,
+                    default_sys_err,
+                ));
+            }
+        }
+
+        let mut analysis = survey_sim::efficiency::imposters::KilonovaImposterAnalysis::new(
+            kn_signal,
+            imp_pops,
+        );
+
+        if let Some(budget) = followup_budget {
+            analysis = analysis.with_followup_budget(budget);
+        }
+
+        Ok(crate::py_rates::PyKilonovaImposterAnalysis { inner: analysis })
+    }
 }
 
 /// Poisson upper limit on a volumetric rate.
