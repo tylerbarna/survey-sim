@@ -1132,6 +1132,39 @@ impl PySimulationResult {
         }
         s
     }
+
+    /// Analyze imposter contamination and detection efficiency for this simulation result.
+    ///
+    /// Finds the summary matching `signal_type` (default "Kilonova") and treats all
+    /// other simulated transient populations as contaminating imposters.
+    #[pyo3(signature = (signal_type="Kilonova", default_sys_err=0.20, followup_budget=None))]
+    pub fn analyze_imposters(
+        &self,
+        signal_type: &str,
+        default_sys_err: f64,
+        followup_budget: Option<f64>,
+    ) -> PyResult<crate::py_rates::PyKilonovaImposterAnalysis> {
+        let signal_summary = self
+            .rate_summaries
+            .iter()
+            .find(|rs| rs.transient_type == signal_type)
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Signal transient type '{}' not found in simulation rate summaries. Available types: {:?}",
+                    signal_type,
+                    self.rate_summaries.iter().map(|rs| &rs.transient_type).collect::<Vec<_>>()
+                ))
+            })?;
+
+        let imposter_summaries: Vec<PyRateSummary> = self
+            .rate_summaries
+            .iter()
+            .filter(|rs| rs.transient_type != signal_type)
+            .cloned()
+            .collect();
+
+        signal_summary.analyze_imposters(None, Some(imposter_summaries), default_sys_err, followup_budget)
+    }
 }
 
 /// Python rate summary.

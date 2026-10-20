@@ -64,6 +64,12 @@ class SimulationResult:
     n_simulated: int
     n_detected: int
     rate_summaries: list["RateSummary"]
+    def analyze_imposters(
+        self,
+        signal_type: str = "Kilonova",
+        default_sys_err: float = 0.20,
+        followup_budget: Optional[float] = None,
+    ) -> "KilonovaImposterAnalysis": ...
 
 class RateSummary:
     transient_type: str
@@ -100,6 +106,30 @@ class KilonovaImposterAnalysis:
     variance_inflation_factor: float
     uncertainty_inflation_factor: float
     imposter_breakdown: list[tuple[str, float]]
+    @staticmethod
+    def from_counts(
+        signal_name: str,
+        volumetric_rate: float,
+        expected_detections: float,
+        effective_vt: float,
+        overall_efficiency: float,
+        imposters: list[tuple[str, float, Optional[float]]],
+        followup_budget: Optional[float] = None,
+    ) -> "KilonovaImposterAnalysis": ...
+    @staticmethod
+    def from_simulation_result(
+        result: SimulationResult,
+        signal_type: str = "Kilonova",
+        default_sys_err: float = 0.20,
+        followup_budget: Optional[float] = None,
+    ) -> "KilonovaImposterAnalysis": ...
+    @staticmethod
+    def from_rate_summaries(
+        rate_summaries: list[RateSummary],
+        signal_type: str = "Kilonova",
+        default_sys_err: float = 0.20,
+        followup_budget: Optional[float] = None,
+    ) -> "KilonovaImposterAnalysis": ...
     def f_beta(self, beta: float) -> float: ...
     def with_followup_budget(self, budget: float) -> "KilonovaImposterAnalysis": ...
     def to_dict(self) -> dict: ...

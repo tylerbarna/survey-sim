@@ -301,6 +301,44 @@ impl PyKilonovaImposterAnalysis {
         Self { inner: analysis }
     }
 
+    #[staticmethod]
+    #[pyo3(signature = (result, signal_type="Kilonova", default_sys_err=0.20, followup_budget=None))]
+    pub fn from_simulation_result(
+        result: &crate::py_pipeline::PySimulationResult,
+        signal_type: &str,
+        default_sys_err: f64,
+        followup_budget: Option<f64>,
+    ) -> PyResult<Self> {
+        result.analyze_imposters(signal_type, default_sys_err, followup_budget)
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (rate_summaries, signal_type="Kilonova", default_sys_err=0.20, followup_budget=None))]
+    pub fn from_rate_summaries(
+        rate_summaries: Vec<crate::py_pipeline::PyRateSummary>,
+        signal_type: &str,
+        default_sys_err: f64,
+        followup_budget: Option<f64>,
+    ) -> PyResult<Self> {
+        let signal_summary = rate_summaries
+            .iter()
+            .find(|rs| rs.transient_type == signal_type)
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Signal transient type '{}' not found in rate summaries",
+                    signal_type
+                ))
+            })?;
+
+        let imposter_summaries: Vec<crate::py_pipeline::PyRateSummary> = rate_summaries
+            .iter()
+            .filter(|rs| rs.transient_type != signal_type)
+            .cloned()
+            .collect();
+
+        signal_summary.analyze_imposters(None, Some(imposter_summaries), default_sys_err, followup_budget)
+    }
+
     #[getter]
     pub fn signal_name(&self) -> String {
         self.inner.kilonova.name.clone()

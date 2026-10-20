@@ -229,6 +229,20 @@ rate_summary.analyze_imposters(
 ) -> KilonovaImposterAnalysis
 ```
 
+#### `SimulationResult.analyze_imposters()`
+
+```python
+# Multi-transient simulation containing Kilonova + other populations:
+result = pipeline.run()
+
+# Analyze contamination directly from the multi-population simulation result:
+analysis = result.analyze_imposters(
+    signal_type="Kilonova",    # target transient population name
+    default_sys_err=0.20,      # fractional systematic uncertainty on imposter rates
+    followup_budget=25.0,      # optional maximum target capacity for spectroscopic follow-up
+)
+```
+
 ---
 
 ## Imposter Analysis
@@ -237,7 +251,25 @@ rate_summary.analyze_imposters(
 
 Analyzes sample purity, contamination, false discovery rate (FDR), effective (pure) detection efficiency, follow-up budget dilution, and decontaminated rate recovery under astrophysical imposters (e.g. Type IIb SN shock cooling, FBOTs, flare stars).
 
+Construct from counts, from rate summaries, or directly from an end-to-end `SimulationResult`:
+
 ```python
+# 1. From an end-to-end multi-population SimulationResult:
+analysis = KilonovaImposterAnalysis.from_simulation_result(
+    result,
+    signal_type="Kilonova",
+    default_sys_err=0.20,
+    followup_budget=25.0,
+)
+
+# 2. From a list of RateSummary objects:
+analysis = KilonovaImposterAnalysis.from_rate_summaries(
+    result.rate_summaries,
+    signal_type="Kilonova",
+    default_sys_err=0.20,
+)
+
+# 3. From manual counts / forecasts:
 analysis = KilonovaImposterAnalysis.from_counts(
     signal_name="BNS Kilonova",
     volumetric_rate=50.0,
@@ -250,6 +282,13 @@ analysis = KilonovaImposterAnalysis.from_counts(
     ],
     followup_budget=25.0,
 )
+
+# Serialization compatibility:
+from survey_sim.serialization import save_result, load_result
+
+# Save analysis to JSON:
+save_result(analysis, "imposter_analysis.json")
+restored = load_result("imposter_analysis.json")
 ```
 
 | Property | Type | Description |

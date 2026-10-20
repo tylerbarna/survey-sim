@@ -155,4 +155,15 @@ fn test_pipeline_simulation_with_kilonova_and_imposters() {
 
     assert!(analysis.metrics.total_detections >= analysis.metrics.signal_detections);
     assert!(analysis.rate_recovery.consistent_2sig);
+
+    // Also test direct from_simulation_result and from_rate_summaries
+    let direct_analysis = KilonovaImposterAnalysis::from_simulation_result(&result, "Kilonova", 0.25)
+        .expect("Should construct from simulation result");
+    assert_eq!(direct_analysis.kilonova.name, "Kilonova");
+    assert_eq!(direct_analysis.imposters.len(), 1);
+    assert!((direct_analysis.metrics.purity - analysis.metrics.purity).abs() < 1e-10);
+
+    let summary_analysis = KilonovaImposterAnalysis::from_rate_summaries(&result.rate_summaries, "Kilonova", 0.25)
+        .expect("Should construct from rate summaries");
+    assert!((summary_analysis.metrics.f1_score - analysis.metrics.f1_score).abs() < 1e-10);
 }

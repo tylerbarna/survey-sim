@@ -177,6 +177,65 @@ class TestSimulationReproducibility(unittest.TestCase):
                 np.testing.assert_allclose(m1_times, m2_times)
                 np.testing.assert_allclose(m1_mags, m2_mags)
 
+    def test_imposter_analysis_serialization_roundtrip(self):
+        from survey_sim.serialization import _MockRateSummary, _MockSimulationResult
+
+        rs_kn = _MockRateSummary({
+            "transient_type": "Kilonova",
+            "volumetric_rate": 100.0,
+            "detections_per_year": 10.0,
+            "detections_total": 30.0,
+            "overall_efficiency": 0.20,
+            "survey_omega_sr": 1.5,
+            "survey_duration_years": 3.0,
+            "effective_vt_gpc3_yr": 0.30,
+            "n_simulated": 1000,
+            "n_detected": 200,
+            "z_max": 0.25,
+        })
+        rs_fbot = _MockRateSummary({
+            "transient_type": "FBOT",
+            "volumetric_rate": 500.0,
+            "detections_per_year": 20.0,
+            "detections_total": 60.0,
+            "overall_efficiency": 0.05,
+            "survey_omega_sr": 1.5,
+            "survey_duration_years": 3.0,
+            "effective_vt_gpc3_yr": 0.12,
+            "n_simulated": 1000,
+            "n_detected": 50,
+            "z_max": 0.40,
+        })
+
+        sim = _MockSimulationResult(2000, 250, [rs_kn, rs_fbot], [])
+        analysis = sim.analyze_imposters(signal_type="Kilonova", default_sys_err=0.25, followup_budget=50.0)
+
+        with tempfile.TemporaryDirectory() as td:
+            out_an = pathlib.Path(td) / "imposter_analysis.json"
+            save_result(analysis, out_an)
+            restored_an = load_result(out_an)
+
+            self.assertEqual(restored_an.signal_name, analysis.signal_name)
+            self.assertAlmostEqual(restored_an.purity, analysis.purity, places=4)
+            self.assertAlmostEqual(restored_an.f1_score, analysis.f1_score, places=4)
+            self.assertAlmostEqual(restored_an.significance_fom, analysis.significance_fom, places=4)
+            self.assertAlmostEqual(restored_an.pure_efficiency, analysis.pure_efficiency, places=4)
+            self.assertAlmostEqual(restored_an.f_beta(0.5), analysis.f_beta(0.5), places=4)
+            self.assertEqual(restored_an.imposter_breakdown, [("FBOT", 60.0)])
+
+            # Test simulation result with imposter analysis attached
+            out_sim = pathlib.Path(td) / "sim_with_imposters.json"
+            save_result(sim, out_sim)
+            restored_sim = load_result(out_sim)
+
+            self.assertTrue(hasattr(restored_sim, "imposter_analysis"))
+            self.assertAlmostEqual(restored_sim.imposter_analysis.purity, analysis.purity, places=4)
+            self.assertAlmostEqual(restored_sim.imposter_analysis.naive_recovered_rate, analysis.naive_recovered_rate, places=4)
+
+            # Test analyze_imposters method on restored simulation
+            recalculated = restored_sim.analyze_imposters(signal_type="Kilonova", default_sys_err=0.25)
+            self.assertAlmostEqual(recalculated.purity, analysis.purity, places=4)
+
 
 if __name__ == "__main__":
     unittest.main()

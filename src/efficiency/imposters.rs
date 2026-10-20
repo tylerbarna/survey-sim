@@ -530,6 +530,39 @@ impl KilonovaImposterAnalysis {
 
         self
     }
+
+    /// Perform imposter analysis directly from a slice of `RateSummary` outputs.
+    ///
+    /// Identifies the signal population matching `signal_type` and treats all other
+    /// summaries as contaminating imposter populations with `imposter_uncertainty_frac`.
+    pub fn from_rate_summaries(
+        rate_summaries: &[RateSummary],
+        signal_type: &str,
+        imposter_uncertainty_frac: f64,
+    ) -> Option<Self> {
+        let signal_summary = rate_summaries
+            .iter()
+            .find(|s| s.transient_type == signal_type)?;
+
+        let signal = KilonovaSignal::from_rate_summary(signal_summary);
+
+        let imposters: Vec<ImposterPopulation> = rate_summaries
+            .iter()
+            .filter(|s| s.transient_type != signal_type)
+            .map(|s| ImposterPopulation::from_rate_summary(s, imposter_uncertainty_frac))
+            .collect();
+
+        Some(Self::new(signal, imposters))
+    }
+
+    /// Perform imposter analysis directly from an end-to-end `SimulationResult`.
+    pub fn from_simulation_result(
+        result: &SimulationResult,
+        signal_type: &str,
+        imposter_uncertainty_frac: f64,
+    ) -> Option<Self> {
+        Self::from_rate_summaries(&result.rate_summaries, signal_type, imposter_uncertainty_frac)
+    }
 }
 
 impl fmt::Display for KilonovaImposterAnalysis {
@@ -813,6 +846,42 @@ mod tests {
         assert!((analysis.metrics.f_beta(1.0) - 0.5).abs() < 1e-6);
         assert!((analysis.metrics.f_beta(0.5) - 0.5).abs() < 1e-6);
         assert!((analysis.metrics.f_beta(2.0) - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_from_rate_summaries() {
+        let rs_kn = RateSummary {
+            transient_type: "Kilonova".to_string(),
+            volumetric_rate: 100.0,
+            detections_per_year: 5.0,
+            detections_total: 15.0,
+            overall_efficiency: 0.15,
+            survey_omega_sr: 1.0,
+            z_max: 0.2,
+            recovery: None,
+        };
+        let rs_fbot = RateSummary {
+            transient_type: "FBOT".to_string(),
+            volumetric_rate: 500.0,
+            detections_per_year: 10.0,
+            detections_total: 30.0,
+            overall_efficiency: 0.05,
+            survey_omega_sr: 1.0,
+            z_max: 0.4,
+            recovery: None,
+        };
+
+        let summaries = vec![rs_kn, rs_fbot];
+        let analysis = KilonovaImposterAnalysis::from_rate_summaries(&summaries, "Kilonova", 0.20)
+            .expect("should construct analysis");
+
+        assert_eq!(analysis.kilonova.name, "Kilonova");
+        assert_eq!(analysis.imposters.len(), 1);
+        assert_eq!(analysis.imposters[0].name, "FBOT");
+        assert_eq!(analysis.metrics.signal_detections, 15.0);
+        assert_eq!(analysis.metrics.total_imposters, 30.0);
+        assert_eq!(analysis.metrics.total_detections, 45.0);
+        assert!((analysis.metrics.purity - 15.0 / 45.0).abs() < 1e-6);
     }
 
     #[test]
