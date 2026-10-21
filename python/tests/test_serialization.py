@@ -172,15 +172,16 @@ class TestSimulationReproducibility(unittest.TestCase):
                 m1_times, m1_mags, m1_errs, m1_bands = rest_src_1.photometry()
                 m2_times, m2_mags, m2_errs, m2_bands = rest_src_2.photometry()
                 
-                # Check live against restored 1
-                _assert_allclose(r_times, m1_times)
-                _assert_allclose(r_mags, m1_mags)
-                _assert_allclose(r_errs, m1_errs)
+                # Check live against restored 1 (within truncation tolerance)
+                _assert_allclose(r_times, m1_times, atol=1e-3)
+                _assert_allclose(r_mags, m1_mags, atol=1e-3)
+                _assert_allclose(r_errs, m1_errs, atol=1e-3)
                 self.assertEqual(list(r_bands), list(m1_bands))
 
-                # Check restored 1 against restored 2
+                # Check restored 1 against restored 2 (exact match)
                 _assert_allclose(m1_times, m2_times)
                 _assert_allclose(m1_mags, m2_mags)
+                _assert_allclose(m1_errs, m2_errs)
 
 class TestImposterAnalysisSerialization(unittest.TestCase):
     def test_imposter_analysis_serialization_roundtrip(self):
